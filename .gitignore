@@ -1,0 +1,46 @@
+# ==============================
+# QMVD Engine - .gitignore
+# ==============================
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# VS Code
+.vscode/
+
+# QMVD command history
+.qmvd_history
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Test / coverage caches
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# Local environment/config secrets
+.env
+.env.*
+.qmvd_history

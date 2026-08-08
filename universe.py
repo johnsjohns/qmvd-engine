@@ -25,7 +25,7 @@ class Universe:
 
     def tick(self):
         for particle in self.particles:
-            particle.move()
+            particle.move(self.width, self.height)
 
         self.time += 1
 

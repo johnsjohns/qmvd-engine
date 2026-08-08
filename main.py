@@ -1,5 +1,13 @@
+import os
+import readline
 from universe import Universe
 
+HISTORY_FILE = os.path.expanduser("~/.qmvd_history")
+
+if os.path.exists(HISTORY_FILE):
+    readline.read_history_file(HISTORY_FILE)
+
+readline.set_history_length(1000)
 
 def main():
     universe = Universe(
@@ -10,13 +18,13 @@ def main():
     )
 
     print()
-    print("QMCD ENGINE v0.1")
+    print("QMVD ENGINE v0.1")
     print('"Que Merda Vai Dar?"')
     print()
     print("Digite 'help' para ver os comandos.")
 
     while True:
-        command = input("\nQMCD > ").strip().lower()
+        command = input("\nQMVD > ").strip().lower()
 
         if command == "help":
             print()
@@ -62,7 +70,8 @@ def main():
                     print("Número de ticks inválido.")
 
         elif command == "exit":
-            print("Encerrando QMCD Engine.")
+            readline.write_history_file(HISTORY_FILE)
+            print("Encerrando QMVD Engine.")
             break
 
         elif command == "":

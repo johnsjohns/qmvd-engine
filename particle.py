@@ -14,9 +14,25 @@ class Particle:
         self.mass = 1.0
         self.energy = 1.0
 
-    def move(self):
+    def move(self, world_width, world_height):
         self.x += self.vx
         self.y += self.vy
+
+        if self.x < 0:
+            self.x = 0
+            self.vx *= -1
+
+        elif self.x > world_width:
+            self.x = world_width
+            self.vx *= -1
+
+        if self.y < 0:
+            self.y = 0
+            self.vy *= -1
+
+        elif self.y > world_height:
+            self.y = world_height
+            self.vy *= -1
 
     def __str__(self):
         return (
