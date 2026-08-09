@@ -60,11 +60,10 @@ class Universe:
     def tick(self):
         dt = TIME_STEP
 
-        # 1. Calcula acelerações no estado atual
+        # Aceleração no início do passo
         self.calculate_accelerations()
 
-        # 2. Atualiza posição usando velocidade
-        #    e metade da aceleração
+        # Atualizar posições e metade da velocidade
         for particle in self.particles:
             particle.x += (
                 particle.vx * dt
@@ -76,28 +75,33 @@ class Universe:
                 + 0.5 * particle.ay * dt * dt
             )
 
-            # Metade da atualização da velocidade
-            particle.vx += 0.5 * particle.ax * dt
-            particle.vy += 0.5 * particle.ay * dt
-            if WALLS_ENABLED:
-                self.handle_wall_collision(particle)
+            particle.vx += (
+                0.5 * particle.ax * dt
+            )
 
-        # Colisões partícula-partícula
+            particle.vy += (
+                0.5 * particle.ay * dt
+            )
+
+        # NÃO chamar handle_wall_collision aqui
+
         if HARD_COLLISIONS_ENABLED:
             self.handle_collisions()
 
-        # 3. Recalcula acelerações nas novas posições
+        # Recalcular acelerações nas posições novas
         self.calculate_accelerations()
 
-        # 4. Completa a atualização da velocidade
+        # Completar a velocidade
         for particle in self.particles:
-            particle.vx += 0.5 * particle.ax * dt
-            particle.vy += 0.5 * particle.ay * dt
+            particle.vx += (
+                0.5 * particle.ax * dt
+            )
+
+            particle.vy += (
+                0.5 * particle.ay * dt
+            )
 
         self.time += 1
-
-
-
     
 
     def handle_collisions(self):
