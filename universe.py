@@ -1,8 +1,14 @@
 import math
 import random
+from tqdm import tqdm
 
 from particle import Particle
-
+from config import (
+    PARTICLE_TYPES,
+    INTERACTIONS,
+    INTERACTION_RANGE,
+    INTERACTION_STRENGTH,
+)
 
 class Universe:
     def __init__(self, width=100, height=100, particle_count=10, seed=666):
@@ -16,23 +22,44 @@ class Universe:
 
         self.particles = []
 
+        type_names = list(PARTICLE_TYPES.keys())
+
+        type_weights = [
+            PARTICLE_TYPES[name]["weight"]
+            for name in type_names
+        ]
+
         for particle_id in range(particle_count):
+            particle_type = random.choices(
+                type_names,
+                weights=type_weights,
+                k=1
+            )[0]
+
+            properties = PARTICLE_TYPES[particle_type]
+
             particle = Particle(
                 particle_id,
+                self.width,
+                self.height,
+                particle_type,
+                properties["mass"],
+                properties["radius"],
+            )
+
+            self.particles.append(particle)
+        self.initial_total_energy = self.total_energy()
+        self.initial_kinetic_energy = self.total_kinetic_energy()
+
+    def tick(self):
+        self.apply_interactions()
+
+        for particle in self.particles:
+            particle.move(
                 self.width,
                 self.height
             )
 
-            self.particles.append(particle)
-
-        self.initial_kinetic_energy = self.total_kinetic_energy()
-
-    def tick(self):
-        # Primeiro movimentamos as partículas
-        for particle in self.particles:
-            particle.move(self.width, self.height)
-
-        # Depois verificamos colisões
         self.handle_collisions()
 
         self.time += 1
@@ -138,7 +165,12 @@ class Universe:
         p2.y += ny * correction
 
     def run(self, ticks):
-        for _ in range(ticks):
+        for _ in tqdm(
+            range(ticks),
+            desc="Simulando",
+            unit="tick",
+            dynamic_ncols=True,
+        ):
             self.tick()
 
     def status(self):
@@ -149,17 +181,36 @@ class Universe:
         print(f"World: {self.width} x {self.height}")
         print(f"Particles: {len(self.particles)}")
         print(f"Collisions: {self.collision_count}")
-        energy = self.total_kinetic_energy()
-        energy_drift = energy - self.initial_kinetic_energy
+
+        kinetic_energy = self.total_kinetic_energy()
+        potential_energy = self.total_potential_energy()
+        total_energy = kinetic_energy + potential_energy
+
+        energy_drift = (
+            total_energy -
+            self.initial_total_energy
+        )
 
         momentum_x, momentum_y = self.total_momentum()
 
-        print(f"Kinetic energy: {energy:.9f}")
-        print(f"Energy drift: {energy_drift:+.9e}")
+        print(f"Kinetic energy:   {kinetic_energy:.9f}")
+        print(f"Potential energy: {potential_energy:.9f}")
+        print(f"Total energy:     {total_energy:.9f}")
+        print(f"Energy drift:     {energy_drift:+.9e}")
 
         print(
             f"Momentum: "
             f"({momentum_x:.6f}, {momentum_y:.6f})"
+)
+
+        counts = self.particle_type_counts()
+
+        print(
+            "Types: "
+            + ", ".join(
+                f"{particle_type}={count}"
+                for particle_type, count in sorted(counts.items())
+            )
         )
         print()
 
@@ -197,3 +248,115 @@ class Universe:
             py += particle.mass * particle.vy
 
         return px, py
+
+    def particle_type_counts(self):
+        counts = {}
+
+        for particle in self.particles:
+            counts[particle.type] = (
+                counts.get(particle.type, 0) + 1
+            )
+
+        return counts
+
+    def apply_interactions(self):
+            particle_count = len(self.particles)
+
+            for i in range(particle_count):
+                for j in range(i + 1, particle_count):
+                    p1 = self.particles[i]
+                    p2 = self.particles[j]
+
+                    dx = p2.x - p1.x
+                    dy = p2.y - p1.y
+
+                    distance_squared = dx * dx + dy * dy
+
+                    if distance_squared == 0:
+                        continue
+
+                    distance = math.sqrt(distance_squared)
+
+                    if distance > INTERACTION_RANGE:
+                        continue
+
+                    key = tuple(sorted((p1.type, p2.type)))
+                    affinity = INTERACTIONS.get(key, 0.0)
+
+                    if affinity == 0:
+                        continue
+
+                    nx = dx / distance
+                    ny = dy / distance
+
+                    # Quanto mais perto, maior a interação.
+                    distance_factor = 1.0 - (
+                        distance / INTERACTION_RANGE
+                    )
+
+                    force = (
+                        affinity
+                        * INTERACTION_STRENGTH
+                        * distance_factor
+                    )
+
+                    fx = force * nx
+                    fy = force * ny
+
+                    # F = m*a  ->  a = F/m
+                    p1.vx += fx / p1.mass
+                    p1.vy += fy / p1.mass
+
+                    p2.vx -= fx / p2.mass
+                    p2.vy -= fy / p2.mass
+
+
+    def total_potential_energy(self):
+        total = 0.0
+        particle_count = len(self.particles)
+
+        for i in range(particle_count):
+            for j in range(i + 1, particle_count):
+                p1 = self.particles[i]
+                p2 = self.particles[j]
+
+                dx = p2.x - p1.x
+                dy = p2.y - p1.y
+
+                distance = math.sqrt(
+                    dx * dx +
+                    dy * dy
+                )
+
+                if distance >= INTERACTION_RANGE:
+                    continue
+
+                key = tuple(sorted((p1.type, p2.type)))
+                affinity = INTERACTIONS.get(key, 0.0)
+
+                if affinity == 0:
+                    continue
+
+                potential = -(
+                    affinity
+                    * INTERACTION_STRENGTH
+                    * (
+                        INTERACTION_RANGE / 2
+                        - distance
+                        + (distance * distance)
+                        / (2 * INTERACTION_RANGE)
+                    )
+                )
+
+                total += potential
+
+        return total
+
+    def total_energy(self):
+        return (
+            self.total_kinetic_energy()
+            + self.total_potential_energy()
+        )
+    
+
+    
