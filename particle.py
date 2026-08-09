@@ -29,6 +29,8 @@ class Particle:
 
         self.vx = random.uniform(-1, 1)
         self.vy = random.uniform(-1, 1)
+        self.ax = 0.0
+        self.ay = 0.0
 
     @property
     def kinetic_energy(self):

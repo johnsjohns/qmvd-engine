@@ -9,6 +9,7 @@ from config import (
     INTERACTION_RANGE,
     INTERACTION_STRENGTH,
     TIME_STEP,
+    COLLISIONS_ENABLED,
 )
 
 class Universe:
@@ -53,17 +54,47 @@ class Universe:
         self.initial_kinetic_energy = self.total_kinetic_energy()
 
     def tick(self):
-        self.apply_interactions()
+        dt = TIME_STEP
 
+        # 1. Calcula acelerações no estado atual
+        self.calculate_accelerations()
+
+        # 2. Atualiza posição usando velocidade
+        #    e metade da aceleração
         for particle in self.particles:
-            particle.move(
-                self.width,
-                self.height
+            particle.x += (
+                particle.vx * dt
+                + 0.5 * particle.ax * dt * dt
             )
 
-        self.handle_collisions()
+            particle.y += (
+                particle.vy * dt
+                + 0.5 * particle.ay * dt * dt
+            )
+
+            # Metade da atualização da velocidade
+            particle.vx += 0.5 * particle.ax * dt
+            particle.vy += 0.5 * particle.ay * dt
+
+            self.handle_wall_collision(particle)
+
+        # Colisões partícula-partícula
+        if COLLISIONS_ENABLED:
+            self.handle_collisions()
+
+        # 3. Recalcula acelerações nas novas posições
+        self.calculate_accelerations()
+
+        # 4. Completa a atualização da velocidade
+        for particle in self.particles:
+            particle.vx += 0.5 * particle.ax * dt
+            particle.vy += 0.5 * particle.ay * dt
 
         self.time += 1
+
+
+
+    
 
     def handle_collisions(self):
         particle_count = len(self.particles)
@@ -157,13 +188,34 @@ class Universe:
         if overlap <= 0:
             return
 
-        correction = overlap / 2
+        inverse_mass_1 = 1.0 / p1.mass
+        inverse_mass_2 = 1.0 / p2.mass
 
-        p1.x -= nx * correction
-        p1.y -= ny * correction
+        inverse_mass_sum = (
+            inverse_mass_1 +
+            inverse_mass_2
+        )
 
-        p2.x += nx * correction
-        p2.y += ny * correction
+        if inverse_mass_sum == 0:
+            return
+
+        correction_1 = (
+            overlap
+            * inverse_mass_1
+            / inverse_mass_sum
+        )
+
+        correction_2 = (
+            overlap
+            * inverse_mass_2
+            / inverse_mass_sum
+        )
+
+        p1.x -= nx * correction_1
+        p1.y -= ny * correction_1
+
+        p2.x += nx * correction_2
+        p2.y += ny * correction_2
 
     def run(self, ticks):
         for _ in tqdm(
@@ -179,6 +231,8 @@ class Universe:
         print("=== QMVD ENGINE ===")
         print(f"Seed: {self.seed}")
         print(f"Time: {self.time} ticks")
+        print(f"Time step: {TIME_STEP}")
+        print(f"Simulation time: {self.time * TIME_STEP:.3f}")
         print(f"World: {self.width} x {self.height}")
         print(f"Particles: {len(self.particles)}")
         print(f"Collisions: {self.collision_count}")
@@ -202,7 +256,7 @@ class Universe:
         print(
             f"Momentum: "
             f"({momentum_x:.6f}, {momentum_y:.6f})"
-)
+            )
 
         counts = self.particle_type_counts()
 
@@ -213,6 +267,9 @@ class Universe:
                 for particle_type, count in sorted(counts.items())
             )
         )
+
+        print()
+       
         print()
 
     def list_particles(self):
@@ -260,57 +317,60 @@ class Universe:
 
         return counts
 
-    def apply_interactions(self):
-            particle_count = len(self.particles)
+    def calculate_accelerations(self):
+        # Zera as acelerações
+        for particle in self.particles:
+            particle.ax = 0.0
+            particle.ay = 0.0
 
-            for i in range(particle_count):
-                for j in range(i + 1, particle_count):
-                    p1 = self.particles[i]
-                    p2 = self.particles[j]
+        particle_count = len(self.particles)
 
-                    dx = p2.x - p1.x
-                    dy = p2.y - p1.y
+        for i in range(particle_count):
+            for j in range(i + 1, particle_count):
+                p1 = self.particles[i]
+                p2 = self.particles[j]
 
-                    distance_squared = dx * dx + dy * dy
+                dx = p2.x - p1.x
+                dy = p2.y - p1.y
 
-                    if distance_squared == 0:
-                        continue
+                distance_squared = dx * dx + dy * dy
 
-                    distance = math.sqrt(distance_squared)
+                if distance_squared == 0:
+                    continue
 
-                    if distance > INTERACTION_RANGE:
-                        continue
+                distance = math.sqrt(distance_squared)
 
-                    key = tuple(sorted((p1.type, p2.type)))
-                    affinity = INTERACTIONS.get(key, 0.0)
+                if distance > INTERACTION_RANGE:
+                    continue
 
-                    if affinity == 0:
-                        continue
+                key = tuple(sorted((p1.type, p2.type)))
+                affinity = INTERACTIONS.get(key, 0.0)
 
-                    nx = dx / distance
-                    ny = dy / distance
+                if affinity == 0:
+                    continue
 
-                    # Quanto mais perto, maior a interação.
-                    distance_factor = 1.0 - (
-                        distance / INTERACTION_RANGE
-                    )
+                nx = dx / distance
+                ny = dy / distance
 
-                    force = (
-                        affinity
-                        * INTERACTION_STRENGTH
-                        * distance_factor
-                    )
+                distance_factor = (
+                    1.0 - distance / INTERACTION_RANGE
+                )
 
-                    fx = force * nx
-                    fy = force * ny
+                force = (
+                    affinity
+                    * INTERACTION_STRENGTH
+                    * distance_factor
+                )
 
-                    # F = m*a  ->  a = F/m
-                    p1.vx += (fx / p1.mass) * TIME_STEP
-                    p1.vy += (fy / p1.mass) * TIME_STEP
+                fx = force * nx
+                fy = force * ny
 
-                    p2.vx -= (fx / p2.mass) * TIME_STEP
-                    p2.vy -= (fy / p2.mass) * TIME_STEP
+                # F = m*a
+                p1.ax += fx / p1.mass
+                p1.ay += fy / p1.mass
 
+                p2.ax -= fx / p2.mass
+                p2.ay -= fy / p2.mass
 
     def total_potential_energy(self):
         total = 0.0
@@ -360,4 +420,19 @@ class Universe:
         )
     
 
-    
+    def handle_wall_collision(self, particle):
+        if particle.x - particle.radius < 0:
+            particle.x = particle.radius
+            particle.vx *= -1
+
+        elif particle.x + particle.radius > self.width:
+            particle.x = self.width - particle.radius
+            particle.vx *= -1
+
+        if particle.y - particle.radius < 0:
+            particle.y = particle.radius
+            particle.vy *= -1
+
+        elif particle.y + particle.radius > self.height:
+            particle.y = self.height - particle.radius
+            particle.vy *= -1
