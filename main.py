@@ -1,6 +1,12 @@
 import os
 import readline
 from universe import Universe
+from config import (
+    WORLD_WIDTH,
+    WORLD_HEIGHT,
+    PARTICLE_COUNT,
+    SEED
+)
 
 HISTORY_FILE = os.path.expanduser("~/.qmvd_history")
 
@@ -11,10 +17,10 @@ readline.set_history_length(1000)
 
 def main():
     universe = Universe(
-        width=100,
-        height=100,
-        particle_count=10,
-        seed=666
+        width=WORLD_WIDTH,
+        height=WORLD_HEIGHT,
+        particle_count=PARTICLE_COUNT,
+        seed=SEED
     )
 
     print()

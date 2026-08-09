@@ -7,7 +7,6 @@ class Particle:
 
         self.radius = 1.0
         self.mass = 1.0
-        self.energy = 1.0
 
         self.x = random.uniform(self.radius, world_width - self.radius)
         self.y = random.uniform(self.radius, world_height - self.radius)
@@ -46,5 +45,12 @@ class Particle:
             f"Vel=({self.vx:.2f}, {self.vy:.2f}) | "
             f"Mass={self.mass:.2f} | "
             f"Radius={self.radius:.2f} | "
-            f"Energy={self.energy:.2f}"
+            f"KineticE={self.kinetic_energy:.4f}"
+        )
+
+    @property
+    def kinetic_energy(self):
+        return 0.5 * self.mass * (
+            self.vx * self.vx +
+            self.vy * self.vy
         )

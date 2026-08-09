@@ -1,0 +1,8 @@
+# QMVD Engine configuration
+
+WORLD_WIDTH = 100
+WORLD_HEIGHT = 100
+
+PARTICLE_COUNT = 100
+
+SEED = 666

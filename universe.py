@@ -25,6 +25,8 @@ class Universe:
 
             self.particles.append(particle)
 
+        self.initial_kinetic_energy = self.total_kinetic_energy()
+
     def tick(self):
         # Primeiro movimentamos as partículas
         for particle in self.particles:
@@ -147,6 +149,18 @@ class Universe:
         print(f"World: {self.width} x {self.height}")
         print(f"Particles: {len(self.particles)}")
         print(f"Collisions: {self.collision_count}")
+        energy = self.total_kinetic_energy()
+        energy_drift = energy - self.initial_kinetic_energy
+
+        momentum_x, momentum_y = self.total_momentum()
+
+        print(f"Kinetic energy: {energy:.9f}")
+        print(f"Energy drift: {energy_drift:+.9e}")
+
+        print(
+            f"Momentum: "
+            f"({momentum_x:.6f}, {momentum_y:.6f})"
+        )
         print()
 
     def list_particles(self):
@@ -160,3 +174,26 @@ class Universe:
                 return
 
         print("Partícula não encontrada.")
+
+    def total_kinetic_energy(self):
+        total = 0.0
+
+        for particle in self.particles:
+            speed_squared = (
+                particle.vx * particle.vx +
+                particle.vy * particle.vy
+            )
+
+            total += 0.5 * particle.mass * speed_squared
+
+        return total
+
+    def total_momentum(self):
+        px = 0.0
+        py = 0.0
+
+        for particle in self.particles:
+            px += particle.mass * particle.vx
+            py += particle.mass * particle.vy
+
+        return px, py
