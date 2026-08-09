@@ -36,3 +36,5 @@ INTERACTIONS = {
     ("B", "C"):  0.50,
     ("C", "C"): -0.30,
 }
+
+TIME_STEP = 0.05

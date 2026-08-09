@@ -8,6 +8,7 @@ from config import (
     INTERACTIONS,
     INTERACTION_RANGE,
     INTERACTION_STRENGTH,
+    TIME_STEP,
 )
 
 class Universe:
@@ -304,11 +305,11 @@ class Universe:
                     fy = force * ny
 
                     # F = m*a  ->  a = F/m
-                    p1.vx += fx / p1.mass
-                    p1.vy += fy / p1.mass
+                    p1.vx += (fx / p1.mass) * TIME_STEP
+                    p1.vy += (fy / p1.mass) * TIME_STEP
 
-                    p2.vx -= fx / p2.mass
-                    p2.vy -= fy / p2.mass
+                    p2.vx -= (fx / p2.mass) * TIME_STEP
+                    p2.vy -= (fy / p2.mass) * TIME_STEP
 
 
     def total_potential_energy(self):

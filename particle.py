@@ -1,5 +1,5 @@
 import random
-
+from config import TIME_STEP
 
 class Particle:
     def __init__(
@@ -40,8 +40,8 @@ class Particle:
         return 0.5 * self.mass * speed_squared
 
     def move(self, world_width, world_height):
-        self.x += self.vx
-        self.y += self.vy
+        self.x += self.vx * TIME_STEP
+        self.y += self.vy * TIME_STEP
 
         if self.x - self.radius < 0:
             self.x = self.radius
