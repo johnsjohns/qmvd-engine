@@ -29,13 +29,13 @@ INTERACTION_RANGE = 10.0
 INTERACTION_STRENGTH = 0.002
 
 INTERACTIONS = {
-    ("A", "A"):  0.0,
-    ("A", "B"):  0.0,
-    ("A", "C"):  0.0,
-    ("B", "B"):  0.0,
-    ("B", "C"):  0.0,
-    ("C", "C"):  0.0,
-}
+    ("A", "A"): -0.10,
+    ("A", "B"):  0.30,
+    ("A", "C"): -0.20,
+    ("B", "B"):  0.10,
+    ("B", "C"):  0.50,
+    ("C", "C"): -0.30,
+}   
 
 TIME_STEP = 0.025
 HARD_COLLISIONS_ENABLED = False

@@ -24,7 +24,7 @@ def main():
     )
 
     print()
-    print("QMVD ENGINE v0.1")
+    print("QMVD ENGINE v2.0")
     print('"Que Merda Vai Dar?"')
     print()
     print("Digite 'help' para ver os comandos.")
