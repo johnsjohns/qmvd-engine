@@ -1,15 +1,19 @@
 import math
 import random
 from tqdm import tqdm
-
 from particle import Particle
 from config import (
-    PARTICLE_TYPES,
+     PARTICLE_TYPES,
     INTERACTIONS,
     INTERACTION_RANGE,
     INTERACTION_STRENGTH,
     TIME_STEP,
-    COLLISIONS_ENABLED,
+    HARD_COLLISIONS_ENABLED,
+    REPULSION_RANGE_FACTOR,
+    REPULSION_STRENGTH,
+    WALLS_ENABLED,
+WALL_REPULSION_RANGE,
+WALL_REPULSION_STRENGTH,
 )
 
 class Universe:
@@ -75,11 +79,11 @@ class Universe:
             # Metade da atualização da velocidade
             particle.vx += 0.5 * particle.ax * dt
             particle.vy += 0.5 * particle.ay * dt
-
-            self.handle_wall_collision(particle)
+            if WALLS_ENABLED:
+                self.handle_wall_collision(particle)
 
         # Colisões partícula-partícula
-        if COLLISIONS_ENABLED:
+        if HARD_COLLISIONS_ENABLED:
             self.handle_collisions()
 
         # 3. Recalcula acelerações nas novas posições
@@ -229,34 +233,44 @@ class Universe:
     def status(self):
         print()
         print("=== QMVD ENGINE ===")
+
         print(f"Seed: {self.seed}")
         print(f"Time: {self.time} ticks")
         print(f"Time step: {TIME_STEP}")
         print(f"Simulation time: {self.time * TIME_STEP:.3f}")
+
         print(f"World: {self.width} x {self.height}")
         print(f"Particles: {len(self.particles)}")
         print(f"Collisions: {self.collision_count}")
 
         kinetic_energy = self.total_kinetic_energy()
-        potential_energy = self.total_potential_energy()
-        total_energy = kinetic_energy + potential_energy
+        particle_potential = self.total_potential_energy()
+        wall_potential = self.wall_potential_energy()
+
+        total_energy = (
+            kinetic_energy
+            + particle_potential
+            + wall_potential
+        )
 
         energy_drift = (
-            total_energy -
-            self.initial_total_energy
+            total_energy
+            - self.initial_total_energy
         )
 
         momentum_x, momentum_y = self.total_momentum()
 
-        print(f"Kinetic energy:   {kinetic_energy:.9f}")
-        print(f"Potential energy: {potential_energy:.9f}")
-        print(f"Total energy:     {total_energy:.9f}")
-        print(f"Energy drift:     {energy_drift:+.9e}")
+        print()
+        print(f"Kinetic energy:        {kinetic_energy:.9f}")
+        print(f"Particle potential:    {particle_potential:.9f}")
+        print(f"Wall potential:        {wall_potential:.9f}")
+        print(f"Total energy:          {total_energy:.9f}")
+        print(f"Energy drift:          {energy_drift:+.9e}")
 
         print(
             f"Momentum: "
             f"({momentum_x:.6f}, {momentum_y:.6f})"
-            )
+        )
 
         counts = self.particle_type_counts()
 
@@ -268,8 +282,6 @@ class Universe:
             )
         )
 
-        print()
-       
         print()
 
     def list_particles(self):
@@ -317,11 +329,218 @@ class Universe:
 
         return counts
 
+   
+
     def calculate_accelerations(self):
-        # Zera as acelerações
+        # ---------------------------------
+        # ZERAR ACELERAÇÕES
+        # ---------------------------------
+
         for particle in self.particles:
             particle.ax = 0.0
             particle.ay = 0.0
+
+        particle_count = len(self.particles)
+
+        # ---------------------------------
+        # INTERAÇÕES PARTÍCULA-PARTÍCULA
+        # ---------------------------------
+
+        for i in range(particle_count):
+            for j in range(i + 1, particle_count):
+                p1 = self.particles[i]
+                p2 = self.particles[j]
+
+                dx = p2.x - p1.x
+                dy = p2.y - p1.y
+
+                distance_squared = dx * dx + dy * dy
+
+                if distance_squared == 0:
+                    continue
+
+                distance = math.sqrt(distance_squared)
+
+                nx = dx / distance
+                ny = dy / distance
+
+                total_force = 0.0
+
+                # -----------------------------
+                # Afinidade entre tipos
+                # -----------------------------
+
+                if distance < INTERACTION_RANGE:
+                    key = tuple(sorted((p1.type, p2.type)))
+                    affinity = INTERACTIONS.get(key, 0.0)
+
+                    if affinity != 0:
+                        distance_factor = (
+                            1.0
+                            - distance / INTERACTION_RANGE
+                        )
+
+                        interaction_force = (
+                            affinity
+                            * INTERACTION_STRENGTH
+                            * distance_factor
+                        )
+
+                        total_force += interaction_force
+
+                # -----------------------------
+                # Repulsão de curto alcance
+                # -----------------------------
+
+                minimum_distance = (
+                    p1.radius
+                    + p2.radius
+                )
+
+                repulsion_range = (
+                    minimum_distance
+                    * REPULSION_RANGE_FACTOR
+                )
+
+                if distance < repulsion_range:
+                    repulsion_factor = (
+                        1.0
+                        - distance / repulsion_range
+                    )
+
+                    repulsion_force = (
+                        REPULSION_STRENGTH
+                        * repulsion_factor
+                    )
+
+                    total_force -= repulsion_force
+
+                # -----------------------------
+                # Aplicar força ao par
+                # -----------------------------
+
+                fx = total_force * nx
+                fy = total_force * ny
+
+                p1.ax += fx / p1.mass
+                p1.ay += fy / p1.mass
+
+                p2.ax -= fx / p2.mass
+                p2.ay -= fy / p2.mass
+
+        # =====================================
+        # PAREDES
+        # =====================================
+        #
+        # IMPORTANTE:
+        # ESTE BLOCO ESTÁ FORA DOS DOIS LOOPS
+        # DE PARES DE PARTÍCULAS.
+        # =====================================
+
+        if WALLS_ENABLED:
+            for particle in self.particles:
+
+                # -----------------------------
+                # Parede esquerda
+                # -----------------------------
+
+                distance = (
+                    particle.x
+                    - particle.radius
+                )
+
+                if distance < WALL_REPULSION_RANGE:
+                    factor = (
+                        1.0
+                        - distance / WALL_REPULSION_RANGE
+                    )
+
+                    force = (
+                        WALL_REPULSION_STRENGTH
+                        * factor
+                    )
+
+                    particle.ax += (
+                        force / particle.mass
+                    )
+
+                # -----------------------------
+                # Parede direita
+                # -----------------------------
+
+                distance = (
+                    self.width
+                    - particle.radius
+                    - particle.x
+                )
+
+                if distance < WALL_REPULSION_RANGE:
+                    factor = (
+                        1.0
+                        - distance / WALL_REPULSION_RANGE
+                    )
+
+                    force = (
+                        WALL_REPULSION_STRENGTH
+                        * factor
+                    )
+
+                    particle.ax -= (
+                        force / particle.mass
+                    )
+
+                # -----------------------------
+                # Parede inferior
+                # -----------------------------
+
+                distance = (
+                    particle.y
+                    - particle.radius
+                )
+
+                if distance < WALL_REPULSION_RANGE:
+                    factor = (
+                        1.0
+                        - distance / WALL_REPULSION_RANGE
+                    )
+
+                    force = (
+                        WALL_REPULSION_STRENGTH
+                        * factor
+                    )
+
+                    particle.ay += (
+                        force / particle.mass
+                    )
+
+                # -----------------------------
+                # Parede superior
+                # -----------------------------
+
+                distance = (
+                    self.height
+                    - particle.radius
+                    - particle.y
+                )
+
+                if distance < WALL_REPULSION_RANGE:
+                    factor = (
+                        1.0
+                        - distance / WALL_REPULSION_RANGE
+                    )
+
+                    force = (
+                        WALL_REPULSION_STRENGTH
+                        * factor
+                    )
+
+                    particle.ay -= (
+                        force / particle.mass
+                    )
+
+
+    def total_potential_energy(self):
+        total = 0.0
 
         particle_count = len(self.particles)
 
@@ -340,85 +559,69 @@ class Universe:
 
                 distance = math.sqrt(distance_squared)
 
-                if distance > INTERACTION_RANGE:
-                    continue
+                # ---------------------------------
+                # POTENCIAL DA INTERAÇÃO NORMAL
+                # ---------------------------------
 
-                key = tuple(sorted((p1.type, p2.type)))
-                affinity = INTERACTIONS.get(key, 0.0)
+                if distance < INTERACTION_RANGE:
+                    key = tuple(sorted((p1.type, p2.type)))
+                    affinity = INTERACTIONS.get(key, 0.0)
 
-                if affinity == 0:
-                    continue
+                    if affinity != 0:
+                        interaction_potential = -(
+                            affinity
+                            * INTERACTION_STRENGTH
+                            * (
+                                INTERACTION_RANGE / 2
+                                - distance
+                                + (
+                                    distance * distance
+                                    / (2 * INTERACTION_RANGE)
+                                )
+                            )
+                        )
 
-                nx = dx / distance
-                ny = dy / distance
+                        total += interaction_potential
 
-                distance_factor = (
-                    1.0 - distance / INTERACTION_RANGE
+                # ---------------------------------
+                # POTENCIAL DA REPULSÃO
+                # ---------------------------------
+
+                minimum_distance = (
+                    p1.radius +
+                    p2.radius
                 )
 
-                force = (
-                    affinity
-                    * INTERACTION_STRENGTH
-                    * distance_factor
+                repulsion_range = (
+                    minimum_distance
+                    * REPULSION_RANGE_FACTOR
                 )
 
-                fx = force * nx
-                fy = force * ny
-
-                # F = m*a
-                p1.ax += fx / p1.mass
-                p1.ay += fy / p1.mass
-
-                p2.ax -= fx / p2.mass
-                p2.ay -= fy / p2.mass
-
-    def total_potential_energy(self):
-        total = 0.0
-        particle_count = len(self.particles)
-
-        for i in range(particle_count):
-            for j in range(i + 1, particle_count):
-                p1 = self.particles[i]
-                p2 = self.particles[j]
-
-                dx = p2.x - p1.x
-                dy = p2.y - p1.y
-
-                distance = math.sqrt(
-                    dx * dx +
-                    dy * dy
-                )
-
-                if distance >= INTERACTION_RANGE:
-                    continue
-
-                key = tuple(sorted((p1.type, p2.type)))
-                affinity = INTERACTIONS.get(key, 0.0)
-
-                if affinity == 0:
-                    continue
-
-                potential = -(
-                    affinity
-                    * INTERACTION_STRENGTH
-                    * (
-                        INTERACTION_RANGE / 2
-                        - distance
-                        + (distance * distance)
-                        / (2 * INTERACTION_RANGE)
+                if distance < repulsion_range:
+                    repulsion_potential = (
+                        REPULSION_STRENGTH
+                        * (
+                            repulsion_range / 2
+                            - distance
+                            + (
+                                distance * distance
+                                / (2 * repulsion_range)
+                            )
+                        )
                     )
-                )
 
-                total += potential
+                    total += repulsion_potential
 
         return total
+
 
     def total_energy(self):
         return (
             self.total_kinetic_energy()
             + self.total_potential_energy()
+            + self.wall_potential_energy()
         )
-    
+        
 
     def handle_wall_collision(self, particle):
         if particle.x - particle.radius < 0:
@@ -436,3 +639,36 @@ class Universe:
         elif particle.y + particle.radius > self.height:
             particle.y = self.height - particle.radius
             particle.vy *= -1
+
+
+    def wall_potential_energy(self):
+        total = 0.0
+
+        if not WALLS_ENABLED:
+            return total
+
+        for particle in self.particles:
+            distances = [
+                particle.x - particle.radius,
+                self.width - particle.radius - particle.x,
+                particle.y - particle.radius,
+                self.height - particle.radius - particle.y,
+            ]
+
+            for distance in distances:
+                if distance < WALL_REPULSION_RANGE:
+                    potential = (
+                        WALL_REPULSION_STRENGTH
+                        * (
+                            WALL_REPULSION_RANGE / 2
+                            - distance
+                            + (
+                                distance * distance
+                                / (2 * WALL_REPULSION_RANGE)
+                            )
+                        )
+                    )
+
+                    total += potential
+
+        return total

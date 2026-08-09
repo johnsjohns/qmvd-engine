@@ -3,7 +3,7 @@
 WORLD_WIDTH = 100
 WORLD_HEIGHT = 100
 
-PARTICLE_COUNT = 100
+PARTICLE_COUNT = 50
 
 SEED = 666
 
@@ -29,14 +29,18 @@ INTERACTION_RANGE = 10.0
 INTERACTION_STRENGTH = 0.002
 
 INTERACTIONS = {
-    ("A", "A"): -0.10,
-    ("A", "B"):  0.30,
-    ("A", "C"): -0.20,
-    ("B", "B"):  0.10,
-    ("B", "C"):  0.50,
-    ("C", "C"): -0.30,
+    ("A", "A"): 0.0,
+    ("A", "B"): 0.0,
+    ("A", "C"): 0.0,
+    ("B", "B"): 0.0,
+    ("B", "C"): 0.0,
+    ("C", "C"): 0.0,
 }
 
-TIME_STEP = 0.05
-
-COLLISIONS_ENABLED = True
+TIME_STEP = 0.025
+HARD_COLLISIONS_ENABLED = False
+REPULSION_RANGE_FACTOR = 1.2
+REPULSION_STRENGTH = 0.08
+WALLS_ENABLED = True
+WALL_REPULSION_RANGE = 3.0
+WALL_REPULSION_STRENGTH = 0.20
